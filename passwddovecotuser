@@ -1,0 +1,59 @@
+#!/bin/bash
+
+
+#
+# REQUIREMENTS: this script will only work with
+# doveadm (https://www.dovecot.org/)
+# and htpasswd (https://www.apache.org/) 
+# binaries installed
+#
+
+# Optional: set some environmental vars to a known values
+PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+LD_LIBRARY_PATH=''
+
+dovecotpasswdfile="/etc/dovecot/passwd"
+# Set this var to path to directory if you want passwd files backuped before action (testing&debug)
+dovecotpasswdfilebackupdir='/etc/dovecot/multipwdbackup/'
+
+# Check if called without arguments
+if [ ! -n "$1" ]; then
+    echo 'passwddovecotuser: First parameter not correctly set.' >&2
+    exit 1
+fi
+
+# Give our best to validate $1 as email address
+echo "$1" | grep -E -q "^\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}\b"
+if [ ! "$?" -eq 0  ]; then
+    echo 'passwddovecotuser: First parameter should be valid email address.' >&2
+    exit 2
+fi
+
+# We won't proceed if user doesn't exist in Dovecot passwd file
+cat "$dovecotpasswdfile" | grep -q "^""$1"
+if [ ! "$?" -eq 0 ]; then
+    echo 'passwddovecotuser: Specified email address does not exist in database.' >&2
+	exit 3
+fi
+
+# Backup
+if [ -d "$dovecotpasswdfilebackupdir" ]; then
+	datumzabekap=$(date +"%T")
+	cp "$dovecotpasswdfile" "$dovecotpasswdfilebackupdir""$datumzabekap""_$1"
+	chmod 600 "$dovecotpasswdfilebackupdir""$datumzabekap""_$1"
+fi
+
+echo "Type new password for $1 and hit [ENTER]:" 
+
+read -s pass
+
+htpasswd -D "$dovecotpasswdfile" "$1" &> /dev/null
+
+dovepass=$( doveadm pw -u "$1" -p"$pass" )
+
+echo "$1"":""$dovepass" >> "$dovecotpasswdfile"
+
+chmod 600 "$dovecotpasswdfile"
+
+echo "Password for $1 changed successfully in [$dovecotpasswdfile]."
+exit 0
