@@ -12,6 +12,11 @@
 PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 LD_LIBRARY_PATH=''
 
+
+type doveadm >/dev/null 2>&1 || { echo >&2 "This script requires doveadm but it's not installed. Aborting."; exit 1; }
+type htpasswd >/dev/null 2>&1 || { echo >&2 "This script requires htpasswd but it's not installed. Aborting."; exit 1; }
+
+
 dovecotpasswdfile="/etc/dovecot/passwd"
 # Set this var to path to directory if you want passwd files backuped before action (testing&debug)
 dovecotpasswdfilebackupdir='/etc/dovecot/multipwdbackup/'
@@ -43,9 +48,14 @@ if [ -d "$dovecotpasswdfilebackupdir" ]; then
 	chmod 600 "$dovecotpasswdfilebackupdir""$datumzabekap""_$1"
 fi
 
-echo "Type new password for $1 and hit [ENTER]:" 
 
-read -s pass
+if [[ -p /dev/stdin ]]; then
+    #stdin is coming from a pipe
+	pass=$(cat /dev/stdin)
+else
+	echo "Type new password for $1 and hit [ENTER]:" 
+	read -s pass	
+fi
 
 htpasswd -D "$dovecotpasswdfile" "$1" &> /dev/null
 
